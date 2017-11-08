@@ -9,9 +9,9 @@ Buffer.freeAll;
 ~rateBus = Bus.control(s, 1);
 r=FBResponder.new;
 r.meter;
-b=Buffer.read(s, "/Users/tomerbaruch/Music/Crunch22/Crunch 22 - Mess With Alice's Adventures In Wonderland (AMLP006) (Final Master : WAV) 2/AMLP006 A4 Crunch 22 - Cat v3.wav");
+//b=Buffer.read(s, "/Users/tomerbaruch/Music/Crunch22/Crunch 22 - Mess With Alice's Adventures In Wonderland (AMLP006) (Final Master : WAV) 2/AMLP006 A4 Crunch 22 - Cat v3.wav");
 c.free;
-c=Buffer.alloc(s, 44100*60*5, 2);
+c=Buffer.alloc(s, s.sampleRate*60*5, 2);
 ~phaseBus = Bus.audio(s, 1);
 ~rateWowBuf = Buffer.alloc(s, 1024, 1);
 ~rateSadBuf = Buffer.alloc(s, 1024, 1);
@@ -19,6 +19,8 @@ c=Buffer.alloc(s, 44100*60*5, 2);
 ~rateScrollBuf = Buffer.alloc(s, 1024, 1);
 ~inBus = 10;
 ~outBus = 0;
+~shortSamples = Array.fill(50, {(buf: Buffer.alloc(s, s.sampleRate*1, 2), stat: \free)});
+
 s.meter;
 )
 (
@@ -69,10 +71,10 @@ SynthDef(\setRate4, {|outBus, src=#[100,100,100,100], tab=#[10,10,10,10], scale=
 	SendReply.kr(Impulse.kr(10), '/rate', rate);
 }).add;
 
-SynthDef(\recordBuf, {|inBus, bufnum, trig, thresh = 0.001, pos = 0, phaseBus|
-	var in = In.ar(inBus, 2);
+SynthDef(\recordBuf, {|inBus, bufnum, trig, thresh = 0.001, pos = 0, phaseBus,onsetThresh=0.2, gain=5|
+	var in = Limiter.ar(In.ar(inBus, 2)*gain);
 	var delay = DelayN.ar(in, 0.1, 0.1);
-	var amplitude = Amplitude.kr(Mix(in), 0.1, 0.2);
+	var amplitude = Amplitude.kr(Mix(in), 0.01, 0.2);
 //	var amplitude = LPF.ar(Mix(in).pow(2), 4, 20000);
 	var gate = SetResetFF.kr(amplitude > thresh, amplitude < thresh);
 	var gateEnv = EnvGen.kr(Env.adsr(0.1, 0, 1, 0.1), gate);
@@ -86,11 +88,41 @@ SynthDef(\recordBuf, {|inBus, bufnum, trig, thresh = 0.001, pos = 0, phaseBus|
 	//env.poll;
 //	var phaseCalc = phase%BufFrames.kr(bufnum);
 	var write = delay*env + (read*(1-env));
+	var chain = FFT( LocalBuf(1024), Mix(write));
+	var onsets = Onsets.kr(chain, onsetThresh);
+	var specCentroid = SpecCentroid.kr(chain);
+	var specEntropy = SpectralEntropy.kr(chain, 1024);
 	BufWr.ar(write , bufnum, phase , 1);
 	Out.ar(phaseBus, Select.ar(extPhase>phase, [phase, extPhase]));
+	SendReply.kr(onsets, '/onset', [phase, specCentroid, specEntropy, amplitude]);
 //	phase.poll;
 //	phaseRate.poll;
 //	write.poll;
+}).add;
+
+SynthDef(\playSamp, {|bufnum, outBus = 0, gain=5, dur=0.5, centroid=4000, rate=1|
+	var signal = Limiter.ar(Mix(PlayBuf.ar(2, bufnum, rate, doneAction:2))*5);
+	var env = EnvGen.kr(Env.perc(0.01, dur, 1, 0), doneAction:2);
+//	var env = EnvGen.kr(Env.linen(0.02, dur-0.07, 0.05), doneAction:2);
+	//var eq = BPF.ar(signal*env, centroid);
+	Out.ar(outBus, Pan2.ar(signal*env, Rand(-1.0, 1)));
+}).add;
+
+SynthDef(\playRev, {|bufnum, outBus = 0, gain=5, dur=0.5, centroid=4000, rate=(-1)|
+	var signal = Limiter.ar(Mix(PlayBuf.ar(2, bufnum, rate, startPos: dur*SampleRate.ir, doneAction:2))*5);
+	var env = EnvGen.kr(Env.perc(dur-0.01, 0.01, 1, 0), doneAction:2);
+//	var env = EnvGen.kr(Env.linen(0.02, dur-0.07, 0.05), doneAction:2);
+	//var eq = BPF.ar(signal*env, centroid);
+	Out.ar(outBus, Pan2.ar(signal*env, Rand(-1.0, 1).poll));
+}).add;
+
+SynthDef(\playPitch, {|bufnum, outBus = 0, gain=5, dur=0.5, centroid=4000|
+	var pitchEnv = EnvGen.ar(Env.perc(0, dur/2, 1, (-12)));
+	var signal = Limiter.ar(Mix(PlayBuf.ar(2, bufnum, pitchEnv+Rand(0.3, 1.3), doneAction:2))*5);
+//	var env = EnvGen.kr(Env.perc(0.01, dur, 1, 4), doneAction:2);
+	var env = EnvGen.kr(Env.linen(0.02, dur*2-0.07, 0.05), doneAction:2);
+	//var eq = BPF.ar(signal*env, centroid);
+	Out.ar(outBus, Pan2.ar(signal*env, Rand(-1.0, 1)));
 }).add;
 
 
@@ -120,12 +152,70 @@ r.actions.do({|val| val.expAmt = 0.997})
 ~rateScrollTableBuf.plot
 ~rateScrollTableBuf.free
 r.actions.sad.expAmt=0.998
+~newThresh = 0.2;
+~checkBackSamps = 6;
 (
 var routeRate, verb, record, makeLoop;
 var posFunc = {|scrollPos, iregularity| (scrollPos*10)+rrand((iregularity*(-0.01)), (iregularity*0.01));};
 var durFunc = {|dur, iregularity| dur*rrand(1-(iregularity*0.5), 1+(iregularity*0.5)); };
 var currentRate;
 var rateReplay = OSCdef.new(\rate, {|msg| currentRate = msg[3]}, '/rate');
+var lastOnsetPhase = 0, minOnsetTime = 0.15*s.sampleRate*2, maxOnsetTime = 1*s.sampleRate*2;
+var minEntropyDifference = 0.05, minCentroidDifference=3, minAmplitude = 0.05;
+var lastShortBuf = 0;
+var lastAmplitude = 0, lastCentroid = 0, lastEntropy = 0;
+var onsetsReplay = OSCdef.new(\onsets, {|msg|
+	// Possible problem - two of these start at the same time and work on the same buffer;
+	var phase = msg[3];
+	var phaseDifference = phase - lastOnsetPhase;
+	var centroid = msg[4], entropy = msg[5].explin(0.1, 50, 0.0, 1), amplitude = msg[6];
+	//msg.postln;
+//	("onset phase:"++phaseDifference).postln;
+	if ((phaseDifference>=minOnsetTime) && (phaseDifference<=maxOnsetTime)) {
+		var samp = ~shortSamples[lastShortBuf];
+		var prevSamps = Array.fill(~checkBackSamps, {|i| ~shortSamples[(lastShortBuf-(i+1))%~shortSamples.size]});
+		var isDifferent=true;
+//		samp.postln;
+//		prevSamp.postln;
+		if (lastAmplitude>=minAmplitude) {
+			"amplitude is good".postln;
+			prevSamps.do({|prevSamp|
+				var centroidDif = (lastCentroid.cpsmidi - (prevSamp.centroidStart?0).cpsmidi).abs;
+				var entropyDif = (lastEntropy - (prevSamp.entropyStart?0)).abs;
+				if (
+					(centroidDif*entropyDif<~newThresh)
+				) {
+					isDifferent = false;
+					("samp is too similar to "++prevSamp.buf).postln;
+					("centDif:"++centroidDif++", entDif:"++entropyDif++", mul:"++(centroidDif*entropyDif)).postln;
+				}
+			});
+			if (isDifferent) {
+				"making a new short sample!!!!".postln;
+				samp.stat = \busy;
+				samp.buf.zero;
+				c.copyData(samp.buf, 0, lastOnsetPhase, phaseDifference);
+				samp.centroidStart = lastCentroid;
+				samp.centroidEnd = centroid;
+				samp.entropyStart = lastEntropy;
+				samp.entropyEnd = entropy;
+				samp.amplitudeStart = lastAmplitude;
+				samp.amplitudeEnd = amplitude;
+				samp.dur = phaseDifference/s.sampleRate/2;
+				samp.stat = \good;
+				samp.buf.play;
+				lastShortBuf = lastShortBuf + 1;
+				if ( lastShortBuf >= ~shortSamples.size ) {lastShortBuf = 0};
+			("next buffer is:"++lastShortBuf).postln;
+			};
+		} {"amp too low".postln};
+	};
+	lastOnsetPhase = phase;
+	lastCentroid = centroid;
+	lastEntropy = entropy;
+	lastAmplitude = amplitude;
+
+}, '/onset');
 ~numThreads = 0;
 g.do(_.free);
 g = Array.fill(2, {Group.tail(s)});
@@ -134,7 +224,7 @@ routeRate = Synth.tail(g[0], \setRate4, [\outBus, ~rateBus,
 	\tab, [~rateActivityBuf, ~rateWowBuf, ~rateSadBuf, ~rateScrollBuf],
 	\scale, [1,1,1,0.1]]);
 verb = Synth.tail(g[1], \adcVerb, [\inBus, ~outBus, \outBus, ~outBus, \mixBus, r.actions.love.bus]);
-record = Synth(\recordBuf, [\inBus, ~inBus, \bufnum, c.bufnum, \phaseBus, ~phaseBus]);
+record = Synth(\recordBuf, [\inBus, ~inBus, \bufnum, c.bufnum, \phaseBus, ~phaseBus, \onsetThresh, 0.2]);
 r.reset;
 r.video.set({record.set(\pos, (r.scroll.pos-0.0003).max(0)*10); "video-----------------------------".postln;});
 makeLoop = {| numTimes = 1, instrument = \playGrain |
@@ -189,8 +279,37 @@ r.actions.comment.set({|val, length| "comment".postln; if (~numThreads < 10) {ma
 
 
 )
+(
+~info={|i|
+	var samp = ~shortSamples[i];
+	//samp.buf.play;
+	Synth(\playRev, [\bufnum, samp.buf, \dur, samp.dur, \rate, -1]);
+	"////////////////".postln;
+	("sample:"++i).postln;
+	("Centroid:"++samp.centroidStart++" / "++samp.centroidEnd).postln;
+	("Entropy:"++samp.entropyStart++" / "++samp.entropyEnd).postln;
+	("Amplitude:"++samp.amplitudeStart++" / "++samp.amplitudeEnd).postln;
 
+	("duration:"++samp.dur).postln;
+}
+)
+(
+{
+	50.do({|i|
+		~info.value(i);
+		1.5.yield;
+	});
+}.fork
+)
+
+~info.value(3);
+
+c.copyMsg(~shortSamples[0].buf, 0, 0, 100000)
+c.get(100, {|msg| msg.postln});
+~shortSamples[0].buf.get(100, {|msg| msg.postln});
+~shortSamples[0].buf.plot
 ~record = RecordOutMulti.new(s, inStereo:0);
+Centroid
 ~record.record;
 ~record.stop;
 ~record.free
