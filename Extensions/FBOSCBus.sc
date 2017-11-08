@@ -24,12 +24,13 @@ FBOSCBus {
 
 			//Set bus value.  Divide by 127 to normalize to 0..1
 			def = OSCdef(name, { arg msg;
+				msg.postln;
 				if ((message.isNil) || (msg[1]==message)) {
 					//"2".postln;
 					//value = (value + boost).min(1.0);
 					//value.postln;
 					//this.bus.set(value);
-					func.value(value);
+					func.value(msg[1], msg[2]);
 				};
 			},
 			path
@@ -46,7 +47,7 @@ FBOSCBus {
 	//	this.decline.stop;
 	//	decline = this.runDecline;
 	}
-	runDecline {
+/*	runDecline {
 		^{
 			{
 				value = value*expAmt;
@@ -54,7 +55,7 @@ FBOSCBus {
 				refreshRate.yield;
 			}.loop;
 		}.fork;
-	}
+	}*/
 
 	set { |function| func = function }
 	//Set to display debug values to the console

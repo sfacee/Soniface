@@ -20,8 +20,6 @@ FBDynOSCBus {
 		if(path.notNil && name.notNil, {
 			bus = Bus.control(Server.default, 1);
 
-
-
 			//Set bus value.  Divide by 127 to normalize to 0..1
 			def = OSCdef(name, { arg msg;
 				msg.postln;

@@ -1,15 +1,15 @@
 /*
-FBDynOSCBus by Tomer Baruch, adapted from MidiCcBus by Jonathan Siemasko
+FBDynBus by Tomer Baruch, adapted from MidiCcBus by Jonathan Siemasko
 
 */
 
 FBDynBus {
-	var <boost, <expAmt, <refreshRate;
+	var <>boost, <>expAmt, <>boostNeg, <>refreshRate;
 	var <bus, <def, <decline, displayDebugInfo, <>func, <>mappingFunc, <value;
 
-	*new{ arg boost = 0.1, expAmt=0.99, refreshRate=0.1;
+	*new{ arg boost = 0.1, expAmt=0.99, boostNeg=nil, refreshRate=0.1;
 		^super
-		.newCopyArgs(boost, expAmt, refreshRate)
+		.newCopyArgs(boost, expAmt, boostNeg, refreshRate)
 		.init()
 	}
 
@@ -17,6 +17,7 @@ FBDynBus {
 		func = {};
 		value = 0;
 //		mappingFunc = { arg x; x/127};
+		boostNeg = boostNeg?(boost*0.5);
 		bus = Bus.control(Server.default, 1);
 
 
@@ -27,7 +28,14 @@ FBDynBus {
 
 	}
 	trig {|val|
-		value = (value + val?boost).min(1.0);
+		value = (value + (val?boost)).min(1.0);
+//		value.postln;
+		this.bus.set(value);
+		func.value(value);
+	}
+
+	trigNeg {|val|
+		value = (value - (val?boostNeg)).max(0.0);
 //		value.postln;
 		this.bus.set(value);
 		func.value(value);
