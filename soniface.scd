@@ -19,7 +19,7 @@
 	~rateActivityBuf = Buffer.alloc(s, 1024, 1);
 	~rateScrollBuf = Buffer.alloc(s, 1024, 1);
 	~shaperBuf = Buffer.alloc(s,6,1);
-	~inBus = 8;
+	~inBus = ~inBus?10;
 	~outBus = 0;
 	~outOSBus = 0;
 	//~osOutBus = 2;
@@ -276,9 +276,9 @@
 	~limiterOS =  Synth.tail(g[1], \master, [\inBus, ~outOSBus, \outBus, ~outOSBus]);
 	//~route = Synth.tail(g[1], \routeST, [\inBus, ~outOSBus, \outBus, ~outBus, \amp, ~osAmp]);
 	~limiter = Synth.tail(g[1], \master, [\inBus, ~outBus, \outBus, ~outBus]);
-	record = Synth(\recordBuf, [\inBus, ~inBus, \bufnum, c.bufnum, \phaseBus, ~phaseBus, \onsetThresh, 0.2]);
+	~record = Synth(\recordBuf, [\inBus, ~inBus, \bufnum, c.bufnum, \phaseBus, ~phaseBus, \onsetThresh, 0.2]);
 	f.reset;
-	f.video.set({record.set(\pos, (f.scroll.pos-0.0003).max(0)*10); "video-----------------------------".postln;});
+	f.video.set({~record.set(\pos, (f.scroll.pos-0.0003).max(0)*10); "video-----------------------------".postln;});
 
 	makeLoop = {| numTimes = 1, instrument = \playGrain, killSynth = true |
 		var outBus = ~outBus, bufnum = c.bufnum, rateBus = ~rateBus;
