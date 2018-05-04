@@ -4,22 +4,26 @@ ControlBusMeterView {
 	classvar serverCleanupFuncs;
 
 	var <view;
-	var busresp, synthFunc, responderFunc, server, buses, names, busmeters, startResponderFunc;
+	var busresp, synthFunc, responderFunc, server, buses, names, <type, <>scale, busmeters, startResponderFunc;
 
-	*new { |aserver, parent, leftUp, buses, names|
-		^super.new.init(aserver, parent, leftUp, buses, names)
+	*new { |aserver, parent, leftUp, buses, names, type, scale|
+		^super.new.init(aserver, parent, leftUp, buses, names, type, scale)
 	}
 
 	*getWidth { arg numBuses, server;
 		^20+((numBuses + 2) * (meterWidth + gapWidth))
 	}
 
-	init { arg aserver, parent, leftUp, abuses, anames;
+	init { arg aserver, parent, leftUp, abuses, anames, atype, ascale;
 		var innerView, viewWidth, levelIndic, palette;
 
 		server = aserver;
 
 		buses = abuses;
+
+		type = atype;
+
+		scale = ascale?1;
 
 		if (anames.size>=buses.size) {names = anames} {names = buses.collect(_.asString)};
 
@@ -111,11 +115,11 @@ ControlBusMeterView {
 			server.bind( {
 				var busSynth;
 				if(buses.size> 0, {
-					busSynth = SynthDef(server.name ++ "BusLevels", {
-						var in = Array.fill(buses.size, {|i| In.kr(buses[i], 1)});
+					busSynth = SynthDef(server.name ++ "BusLevels" ++ type, {
+						var in = Array.fill(buses.size, {|i| if (type==\audio) {In.ar(buses[i], 1)} {In.kr(buses[i], 1)}});
 						var trig = Impulse.kr(updateFreq);
-						SendReply.kr(trig, "/" ++ server.name ++ "BusLevels", in)
-					}).play(RootNode(server), nil, \addToHead);
+						SendReply.kr(trig, "/" ++ server.name ++ "BusLevels" ++ type, in*scale)
+					}).play(RootNode(server), nil, \addToTail);
 				});
 	/*			if(numOuts > 0, {
 					outsynth = SynthDef(server.name ++ "OutputLevels", {
@@ -165,7 +169,7 @@ ControlBusMeterView {
 						if(error.isKindOf(PrimitiveFailedError).not) { error.throw }
 					};
 				}.defer;
-			}, ("/" ++ server.name ++ "BusLevels").asSymbol, server.addr).fix;
+			}, ("/" ++ server.name ++ "BusLevels" ++ type).asSymbol, server.addr).fix;
 		};
 /*		if(numOuts > 0) {
 			outresp = OSCFunc( {|msg|
@@ -234,7 +238,7 @@ ControlBusMeter {
 
 	var <window, <meterView;
 
-	*new { |server, buses, names, pos|
+	*new { |server, buses, names, pos, type = \control, scale=1|
 
 		var window, meterView;
 		pos = pos ? [5, 305];
@@ -242,7 +246,7 @@ ControlBusMeter {
 			Rect(pos[0], pos[1], ControlBusMeterView.getWidth(buses.size), ControlBusMeterView.height),
 			false);
 
-		meterView = ControlBusMeterView(server, window, 0@0, buses, names);
+		meterView = ControlBusMeterView(server, window, 0@0, buses, names, type, scale);
 		meterView.view.keyDownAction_( { arg view, char, modifiers;
 			if(modifiers & 16515072 == 0) {
 				case
