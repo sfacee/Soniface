@@ -2,8 +2,8 @@
 // Make sure that in your system preferences the audio input and output is set to the external interface.
 // Then put your cursor somewhere here and press Cmd+Enter
 // Then go to system preferences and change audio output to the headphones out and physically plug headphones out to the first two inputs of your interface.
-//s.useMotu;
-s.useJack;
+s.useMotu;
+//s.useJack;
 {
 	var c;
 	~path="/Users/tomerbaruch/Music/Projects/Sonifying Facebook/soniface/"; // change this to the current folder of the supercollider app
@@ -18,12 +18,14 @@ s.useJack;
 	~initialize.value;
 	s.sync(c);
 	3.wait;
-	"loading synthdefs".postln;
+	"loading synthdefs and buffers".postln;
 	~loadSynthDefs.value;
+	~loadBuffers.value;
 	s.sync(c);
 	3.wait;
-	"setting tables".postln;
+	"setting tables and default buffer".postln;
 	~setTables.value;
+	~setDefaultBuffer.value;
 	s.sync(c);
 	5.wait;
 	"starting app".postln;
@@ -42,4 +44,4 @@ Ndef(\playIn).clear
 Ndef.clear
 Ndef(\playIn, {Out.ar(0, SinOsc.ar!2*0.1)}).play
 
-
+c.write("/Users/tomerbaruch/Desktop/temp.aif")

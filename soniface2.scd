@@ -33,6 +33,11 @@
 	~maxThreads = 4;
 //	s.meter;
 };
+
+~loadBuffers = {
+	~defaultsounds=(~path++"feedme-sounds/*").pathMatch.collect({|file| Buffer.read(s, file)});
+};
+
 ~loadSynthDefs = {
 	SynthDef(\routeST, {|inBus=8, outBus=18, amp=1|
 		var signal=In.ar(inBus,2);
@@ -154,6 +159,7 @@
 		//	phaseRate.poll;
 		//	write.poll;
 	}).add;
+
 	SynthDef(\playIn, {|inBus, outBus, amp=0.3, gain=5, gate=1|
 		Out.ar(outBus, Limiter.ar(In.ar(inBus, 2)*amp*Lag.kr(gate)));
 	}).add;
@@ -193,6 +199,17 @@
 	~shaperBuf.setn(0,[-1,0.6,-0.2,0.2,-0.6,1]);
 	~bpm=100;
 };
+
+~setDefaultBuffer = {
+	var pos=0;
+	while {pos<c.numFrames} {
+		var buf = ~defaultsounds.choose;
+		buf.copyData(c, pos, 0);
+		pos = pos + buf.numFrames;
+		pos.postln;
+	};
+};
+
 
 ~startProcess = {
 
