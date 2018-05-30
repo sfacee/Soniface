@@ -89,6 +89,20 @@ FBResponder {
 			{\UnSad} {sums.activity.trigNeg; actions[\sad].trigNeg}
 			{\UnAngry} {sums.activity.trigNeg; actions[\angry].trigNeg}
 
+			{"לייק".asSymbol} {sums.activity.trig; actions[\like].trig}
+			{"אהבה".asSymbol} {sums.activity.trig; actions[\love].trig}
+			{"חחח".asSymbol} {sums.activity.trig; actions[\haha].trig}
+			{"וואו".asSymbol} {sums.activity.trig; actions[\wow].trig}
+			{"עצב".asSymbol} {sums.activity.trig; actions[\sad].trig}
+			{"כעס".asSymbol} {sums.activity.trig; actions[\angry].trig}
+
+			{"Unלייק".asSymbol} {sums.activity.trigNeg; actions[\like].trigNeg}
+			{"Unאהבה".asSymbol} {sums.activity.trigNeg; actions[\love].trigNeg}
+			{"Unחחח".asSymbol} {sums.activity.trigNeg; actions[\haha].trigNeg}
+			{"Unוואו".asSymbol} {sums.activity.trigNeg; actions[\wow].trigNeg}
+			{"Unעצב".asSymbol} {sums.activity.trigNeg; actions[\sad].trigNeg}
+			{"Unכעס".asSymbol} {sums.activity.trigNeg; actions[\angry].trigNeg}
+
 //		}, '/click');
 		}, '/reaction');
 		defReactions.permanent = true;
