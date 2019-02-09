@@ -21,11 +21,12 @@
 	~shaperBuf = Buffer.alloc(s,6,1);
 	~inBus = ~inBus?10;
 	~outBus = 0;
-	~outOSBus = 0;
+	~outOSBus = 100;
 	//~osOutBus = 2;
 	~shortSamples = Array.fill(50, {(bufnum: Buffer.alloc(s, s.sampleRate*1, 2), stat: \free)});
 	~maxShortSamples = 0;
-	~osAmp = 1;
+	~osAmp = 0.5;
+	~mainAmp = 0.5;
 	~path=~path?"/Users/tomerbaruch/Music/Projects/Sonifying Facebook/soniface/";
 	(~path++"oneShots.scd").loadPaths[0].value(~outOSBus, ~verbOSBus, ~delayOSBus);
 
@@ -42,6 +43,10 @@
 	SynthDef(\routeST, {|inBus=8, outBus=18, amp=1|
 		var signal=In.ar(inBus,2);
 		Out.ar(outBus,signal*amp);
+	}).add;
+
+	SynthDef(\gain, {|inBus= 0, outBus =0, amp=0.5|
+		ReplaceOut.ar(outBus, In.ar(inBus, 2)*amp);
 	}).add;
 
 	SynthDef(\master, {|inBus = 0, outBus = 0|
@@ -293,9 +298,11 @@
 	~delay = Synth.tail(g[1], \stDelay, [\inBus, ~delayBus, \outBus, ~outBus, \time, 0.45, \repeat, 0.9]);
 	~verbOS = Synth.tail(g[1], \adcVerb, [\inBus, ~verbOSBus, \outBus, ~outOSBus]);
 	~delayOS = Synth.tail(g[1], \stDelay, [\inBus, ~delayOSBus, \outBus, ~outOSBus]);
+	~mainGain = Synth.tail(g[1], \gain, [\inBus, ~outBus, \outBus, ~outBus, \amp, ~mainAmp]);
 	~limiterOS =  Synth.tail(g[1], \master, [\inBus, ~outOSBus, \outBus, ~outOSBus]);
-	//~route = Synth.tail(g[1], \routeST, [\inBus, ~outOSBus, \outBus, ~outBus, \amp, ~osAmp]);
-	~limiter = Synth.tail(g[1], \master, [\inBus, ~outBus, \outBus, ~outBus]);
+	~routeOS = Synth.tail(g[1], \routeST, [\inBus, ~outOSBus, \outBus, ~outBus, \amp, ~osAmp]);
+	~limiterMain = Synth.tail(g[1], \master, [\inBus, ~outBus, \outBus, ~outBus]);
+
 	~record = Synth(\recordBuf, [\inBus, ~inBus, \bufnum, c.bufnum, \phaseBus, ~phaseBus, \onsetThresh, 0.2]);
 	//Ndef(\playIn, {Out.ar(~outBus, In.ar(~inBus, 2))});
 	~playIn=Synth(\playIn, [\inBus, ~inBus, \outBus, ~outBus, \gate, 0, \amp, 0.3]);
